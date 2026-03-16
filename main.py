@@ -56,18 +56,36 @@ async def kakao_webhook(req: Request):
         context = "\n".join(results['documents'][0]) if results['documents'] and results['documents'][0] else ""
         
         # 2. 프롬프트 최적화 (AI에게 문맥을 더 깊이 분석하고 친절하게 답하라고 지시합니다)
-        prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 질문에 대한 정확한 답변을 2~3문장으로 상세하고 친절하게 작성하세요. 서론은 생략하고 본론만 답하세요."
-        
-        # 3. 답변 생성 (속도와 정확도의 균형을 맞춥니다)
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "max_output_tokens": 300,  # 300 토큰으로 넉넉하게
-                "temperature": 0.2,         # 0.0에서 0.2로 올려서 약간의 유연성을 줍니다
-                "top_p": 0.9,
-                "top_k": 50
-            }
-        )
+# prompt 수정
+prompt = f"""
+[참고 문서]
+{context}
+
+[사용자 질문]
+{query}
+
+[답변 규칙]
+- 반드시 참고 문서를 기반으로 답변하세요.
+- 핵심 정보(대상, 금액, 조건 등)를 중심으로 설명하세요.
+- 답변은 자연스러운 한국어 문장으로 작성하세요.
+- 문서 문장을 그대로 복사하지 말고 이해해서 설명하세요.
+- 답변은 2~3문장 이내로 작성하세요.
+- 문장이 중간에 끊기지 않도록 완결된 문장으로 작성하세요.
+- 인사말은 작성하지 마세요.
+- 질문을 반복하지 마세요.
+
+[답변]
+"""
+
+response = model.generate_content(
+    prompt,
+    generation_config={
+        "max_output_tokens": 200,
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "top_k": 40
+    }
+)
         answer = response.text.strip()
         
     except Exception as e:

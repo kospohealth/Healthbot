@@ -45,6 +45,54 @@ def split_text(text: str, chunk_size: int = 500, overlap: int = 100):
     return chunks
 
 
+def clean_text(text: str) -> str:
+    """
+    PDF에서 추출한 깨진 공백/줄바꿈을 조금 정리
+    """
+    if not text:
+        return ""
+
+    text = text.replace("\xa0", " ")
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return "\n".join(lines)
+
+
+def build_context(results) -> str:
+    """
+    검색된 여러 조각을 정리해서 context로 합침
+    중복 문장을 줄이고, 표/문단 조각을 최대한 읽기 좋게 만듦
+    """
+    documents = results.get("documents", [[]])
+    metadatas = results.get("metadatas", [[]])
+
+    if not documents or not documents[0]:
+        return ""
+
+    seen = set()
+    context_parts = []
+
+    for i, doc_text in enumerate(documents[0]):
+        if not doc_text:
+            continue
+
+        cleaned = clean_text(doc_text)
+
+        # 너무 짧거나 중복이면 제외
+        key = cleaned[:150]
+        if len(cleaned) < 20 or key in seen:
+            continue
+        seen.add(key)
+
+        source_info = ""
+        if metadatas and metadatas[0] and i < len(metadatas[0]):
+            meta = metadatas[0][i]
+            source_info = f"[출처: {meta.get('source', '알 수 없음')} / 조각 {meta.get('chunk_index', i)}]\n"
+
+        context_parts.append(source_info + cleaned)
+
+    return "\n\n".join(context_parts)
+
+
 # 3. 문서 로드
 @app.on_event("startup")
 def load_docs():
@@ -112,30 +160,19 @@ async def kakao_webhook(req: Request):
         if not query:
             answer = "질문 내용을 확인하지 못했습니다. 다시 입력해주세요."
         else:
-            # 관련 문서 검색
+            # 표 문서는 여러 조각을 같이 봐야 해서 5개 추천
             results = collection.query(
                 query_texts=[query],
-                n_results=3
+                n_results=5
             )
 
-            documents = results.get("documents", [[]])
-            metadatas = results.get("metadatas", [[]])
+            context = build_context(results)
 
-            if not documents or not documents[0]:
+            if not context:
                 answer = "관련 문서를 찾지 못했습니다. 질문을 조금 더 구체적으로 입력해주세요."
             else:
-                context_parts = []
-                for i, doc_text in enumerate(documents[0]):
-                    source_info = ""
-                    if metadatas and metadatas[0] and i < len(metadatas[0]):
-                        meta = metadatas[0][i]
-                        source_info = f"(출처: {meta.get('source', '알 수 없음')})\n"
-                    context_parts.append(source_info + doc_text)
-
-                context = "\n\n".join(context_parts)
-
-                print("📚 [검색된 문맥]")
-                print(context[:1000])  # 로그 너무 길어지는 것 방지
+                print("📚 [정리된 문맥]")
+                print(context[:1200])
 
                 prompt = f"""
 [참고 문서]
@@ -146,15 +183,19 @@ async def kakao_webhook(req: Request):
 
 [답변 규칙]
 - 반드시 참고 문서를 기반으로 답변하세요.
-- 핵심 정보(대상, 금액, 조건, 시기 등)를 중심으로 설명하세요.
-- 답변은 자연스러운 한국어 문장으로 작성하세요.
-- 문서 문장을 그대로 복사하지 말고 이해해서 설명하세요.
+- 참고 문서가 표 형태이면, 행과 열의 관계를 해석해서 자연스러운 문장으로 설명하세요.
+- 숫자(금액, 인원, 횟수, 연령, 연도)는 틀리지 않게 우선 반영하세요.
+- 핵심 정보(대상, 금액, 조건, 시기)를 먼저 답하세요.
+- 문서 문장을 어색하게 그대로 복사하지 말고, 의미를 이해해서 다시 설명하세요.
 - 답변은 2~3문장 이내로 작성하세요.
 - 문장이 중간에 끊기지 않도록 완결된 문장으로 작성하세요.
 - 인사말은 작성하지 마세요.
 - 질문을 반복하지 마세요.
 - 참고 문서에 없는 내용은 추측하지 말고 "문서에서 확인되지 않습니다"라고 답하세요.
-- 금액, 대상, 횟수, 조건처럼 중요한 정보가 있으면 우선 포함하세요.
+
+[답변 예시 형식]
+- "장애직원 건강검진 지원금은 전 연령 24만원입니다."
+- "건강검진 대상은 전 임직원이며, 임직원 가족과 퇴직직원은 개인부담으로 검진할 수 있습니다."
 
 [답변]
 """
@@ -162,14 +203,18 @@ async def kakao_webhook(req: Request):
                 response = model.generate_content(
                     prompt,
                     generation_config={
-                        "max_output_tokens": 200,
-                        "temperature": 0.2,
+                        "max_output_tokens": 220,
+                        "temperature": 0.15,
                         "top_p": 0.9,
-                        "top_k": 40
+                        "top_k": 20
                     }
                 )
 
                 answer = response.text.strip() if response.text else "문서에서 답변을 생성하지 못했습니다."
+
+                # 너무 짧거나 잘린 답변 방지용 후처리
+                if len(answer) < 8:
+                    answer = "문서 내용을 찾았지만 답변이 짧게 생성되었습니다. 질문을 조금 더 구체적으로 입력해주세요."
 
         print(f"🤖 [챗봇 답변] {answer}")
 

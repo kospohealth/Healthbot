@@ -60,12 +60,14 @@ async def kakao_webhook(req: Request):
         prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 서론 없이 결론만 바로 상세하게 답하세요. 반드시 완성된 문장으로 끝맺으세요."
         
         response = model.generate_content(
-            prompt,
-            generation_config={
-                "max_output_tokens": 300, 
-                "temperature": 0.0,  # 0.1보다 0.0이 더 빠르고 정확합니다.
-            }
-        )
+    prompt,
+    generation_config={
+        "max_output_tokens": 150, 
+        "temperature": 0.0,
+        "top_p": 1,
+        "top_k": 1
+    }
+)
         answer = response.text.strip()
         
     except Exception as e:

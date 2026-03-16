@@ -34,7 +34,7 @@ def extract_text_from_pdf(pdf_path):
     return text
 
 # 3. 'documents' 폴더의 PDF 읽어서 ChromaDB에 넣기 (서버 시작 시 1회 실행)
-DOC_DIR = "documents" # PDF 파일들이 들어있는 폴더 이름
+DOC_DIR = "." # PDF 파일들이 들어있는 폴더 이름
 
 @app.on_event("startup")
 def load_docs_to_db():

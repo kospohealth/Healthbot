@@ -56,13 +56,14 @@ async def kakao_webhook(req: Request):
         context = results['documents'][0][0] if results['documents'] and results['documents'][0] else ""
         
         # Gemini 답변 생성 (한 문장 제한으로 5초 타임아웃 방지)
-        prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 한 문장으로 친절하게 답하세요."
-        
+        prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 핵심 내용을 3문장 이내로 상세하고 친절하게 답하세요."
         response = model.generate_content(
             prompt,
             generation_config={
-                "max_output_tokens": 500,
-                "temperature": 0.2
+                "max_output_tokens": 300,  # 500은 너무 길 수 있으니 300으로 타협합니다.
+                "temperature": 0.1,         # 0.1로 낮추면 AI가 덜 고민하고 바로 답을 뱉습니다.
+                "top_p": 0.8,
+                "top_k": 40
             }
         )
         answer = response.text.strip()

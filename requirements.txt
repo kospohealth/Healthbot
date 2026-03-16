@@ -2,5 +2,6 @@ fastapi
 uvicorn
 requests
 google.genai
-chromadb      # RAG용
-python-dotenv  # 환경변수 관리
+chromadb
+python-dotenv
+pymupdf

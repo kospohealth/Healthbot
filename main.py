@@ -11,10 +11,5 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 
 @app.get("/")
 def root():
-    response = model.generate_content("건강검진 전에 금식은 몇시간 해야해?")
-    return {"answer": response.text} "text": answer
-                    }
-                }
-            ]
-        }
-    }
+    response = model.generate_content("건강검진 전에 금식은 몇 시간 해야 하나요?")
+    return {"answer": response.text}

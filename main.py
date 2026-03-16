@@ -1,22 +1,18 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+import google.generativeai as genai
+import os
 
 app = FastAPI()
 
-@app.post("/webhook")
-async def webhook(req: Request):
-    body = await req.json()
+# Gemini API 설정
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
-    user_msg = body["userRequest"]["utterance"]
+model = genai.GenerativeModel("gemini-1.5-flash")
 
-    answer = f"질문을 받았어요: {user_msg}"
-
-    return {
-        "version": "2.0",
-        "template": {
-            "outputs": [
-                {
-                    "simpleText": {
-                        "text": answer
+@app.get("/")
+def root():
+    response = model.generate_content("건강검진 전에 금식은 몇시간 해야해?")
+    return {"answer": response.text} "text": answer
                     }
                 }
             ]

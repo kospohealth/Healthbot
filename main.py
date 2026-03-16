@@ -51,33 +51,32 @@ async def kakao_webhook(req: Request):
         data = await req.json()
         query = data.get('userRequest', {}).get('utterance', '')
         
-        # 1. 검색 결과 최적화 (가장 관련 있는 것만 빠르게)
-        results = collection.query(query_texts=[query], n_results=1)
-        context = results['documents'][0][0] if results['documents'] and results['documents'][0] else ""
+        # 1. 검색 강화 (가장 관련 있는 문단 3개를 추출하여 문맥을 넓힙니다)
+        results = collection.query(query_texts=[query], n_results=3) # n_results를 1에서 3으로 상향
+        context = "\n".join(results['documents'][0]) if results['documents'] and results['documents'][0] else ""
         
-        # 2. 프롬프트 최적화 (AI가 서론을 빼고 바로 결론을 말하게 하여 시간 단축)
-        # "네, 안내해드릴게요" 같은 말을 빼는 것이 핵심입니다.
-        prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 서론 없이 결론만 바로 상세하게 답하세요. 반드시 완성된 문장으로 끝맺으세요."
+        # 2. 프롬프트 최적화 (AI에게 문맥을 더 깊이 분석하고 친절하게 답하라고 지시합니다)
+        prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 질문에 대한 정확한 답변을 2~3문장으로 상세하고 친절하게 작성하세요. 서론은 생략하고 본론만 답하세요."
         
+        # 3. 답변 생성 (속도와 정확도의 균형을 맞춥니다)
         response = model.generate_content(
-    prompt,
-    generation_config={
-        "max_output_tokens": 150, 
-        "temperature": 0.0,
-        "top_p": 1,
-        "top_k": 1
-    }
-)
+            prompt,
+            generation_config={
+                "max_output_tokens": 300,  # 300 토큰으로 넉넉하게
+                "temperature": 0.2,         # 0.0에서 0.2로 올려서 약간의 유연성을 줍니다
+                "top_p": 0.9,
+                "top_k": 50
+            }
+        )
         answer = response.text.strip()
         
     except Exception as e:
         print(f"❌ [에러 로그] {e}")
         answer = "죄송합니다. 답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     
-    # 3. 답변이 너무 길면 카톡에서 거절할 수 있으므로 안전장치 추가
     return {
         "version": "2.0",
         "template": {
-            "outputs": [{"simpleText": {"text": answer[:400]}}] # 카톡 한 글자 제한(보통 500자) 안전권
+            "outputs": [{"simpleText": {"text": answer}}]
         }
     }

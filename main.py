@@ -12,8 +12,8 @@ app = FastAPI()
 
 # 2. Gemini 설정 (가장 안정적인 google-generativeai 방식)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-# 모델명 앞에 'models/'를 붙여 경로를 확실히 지정 (404 에러 방지)
-MODEL_NAME = 'models/gemini-1.5-flash'
+# 'models/'를 빼고 이름만 적어보세요
+MODEL_NAME = 'gemini-1.5-flash'
 model = genai.GenerativeModel(MODEL_NAME)
 
 # 3. 벡터 DB 설정 (ChromaDB)

@@ -14,7 +14,7 @@ app = FastAPI()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 # 'models/'를 빼고 이름만 적어보세요
 MODEL_NAME = 'gemini-1.5-flash'
-model = genai.GenerativeModel(MODEL_NAME)
+model = genai.GenerativeModel('models/gemini-1.5-flash')
 
 # 3. 벡터 DB 설정 (ChromaDB)
 emb_fn = embedding_functions.DefaultEmbeddingFunction()

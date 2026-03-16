@@ -192,6 +192,8 @@ async def kakao_webhook(req: Request):
 - 인사말은 작성하지 마세요.
 - 질문을 반복하지 마세요.
 - 참고 문서에 없는 내용은 추측하지 말고 "문서에서 확인되지 않습니다"라고 답하세요.
+- 답변은 반드시 완전한 문장으로 끝나야 합니다.
+- 문장이 중간에서 끊기지 않도록 작성하세요.
 
 [답변 예시 형식]
 - "장애직원 건강검진 지원금은 전 연령 24만원입니다."
@@ -203,8 +205,8 @@ async def kakao_webhook(req: Request):
                 response = model.generate_content(
                     prompt,
                     generation_config={
-                        "max_output_tokens": 220,
-                        "temperature": 0.15,
+                        "max_output_tokens": 300,
+                        "temperature": 0.1,
                         "top_p": 0.9,
                         "top_k": 20
                     }

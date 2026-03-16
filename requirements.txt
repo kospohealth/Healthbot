@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 requests
-google.genai
+google-generativeai  # <-- google.genai 대신 이걸로 변경
 chromadb
 python-dotenv
 pymupdf

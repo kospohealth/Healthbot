@@ -61,8 +61,8 @@ async def kakao_webhook(req: Request):
         response = model.generate_content(
             prompt,
             generation_config={
-                "max_output_tokens": 150,
-                "temperature": 0.1
+                "max_output_tokens": 300,
+                "temperature": 0.5
             }
         )
         answer = response.text.strip()

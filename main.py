@@ -4,9 +4,9 @@ import os
 
 app = FastAPI()
 
-# ✅ Gemini 최신 SDK: models.text.Bison 사용
+# ✅ Gemini 최신 SDK: Bison 모델 사용
 api_key = os.environ.get("GEMINI_API_KEY")
-model = genai.models.text.Bison(model="gemini-1.5-flash", api_key=api_key)
+model = genai.Bison(model="gemini-1.5-flash", api_key=api_key)
 
 # --- 회사 자료 기반 RAG 샘플 ---
 company_docs = [

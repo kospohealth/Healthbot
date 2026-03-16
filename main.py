@@ -51,35 +51,31 @@ async def kakao_webhook(req: Request):
         data = await req.json()
         query = data.get('userRequest', {}).get('utterance', '')
         
-        # 문서 검색 (가장 관련 있는 문단 1개 추출)
+        # 1. 검색 결과 최적화 (가장 관련 있는 것만 빠르게)
         results = collection.query(query_texts=[query], n_results=1)
         context = results['documents'][0][0] if results['documents'] and results['documents'][0] else ""
         
-        # Gemini 답변 생성 (한 문장 제한으로 5초 타임아웃 방지)
-        prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 핵심 내용을 3문장 이내로 상세하고 친절하게 답하세요."
+        # 2. 프롬프트 최적화 (AI가 서론을 빼고 바로 결론을 말하게 하여 시간 단축)
+        # "네, 안내해드릴게요" 같은 말을 빼는 것이 핵심입니다.
+        prompt = f"문서내용: {context}\n질문: {query}\n위 내용을 바탕으로 서론 없이 결론만 바로 상세하게 답하세요. 반드시 완성된 문장으로 끝맺으세요."
+        
         response = model.generate_content(
             prompt,
             generation_config={
-                "max_output_tokens": 300,  # 500은 너무 길 수 있으니 300으로 타협합니다.
-                "temperature": 0.1,         # 0.1로 낮추면 AI가 덜 고민하고 바로 답을 뱉습니다.
-                "top_p": 0.8,
-                "top_k": 40
+                "max_output_tokens": 300, 
+                "temperature": 0.0,  # 0.1보다 0.0이 더 빠르고 정확합니다.
             }
         )
         answer = response.text.strip()
         
     except Exception as e:
-        # 에러가 발생하면 카톡 답변으로 원인을 직접 보냅니다.
         print(f"❌ [에러 로그] {e}")
-        answer = f"오류 원인: {str(e)[:50]}... (로그 확인 필요)"
+        answer = "죄송합니다. 답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     
+    # 3. 답변이 너무 길면 카톡에서 거절할 수 있으므로 안전장치 추가
     return {
         "version": "2.0",
         "template": {
-            "outputs": [{"simpleText": {"text": answer}}]
+            "outputs": [{"simpleText": {"text": answer[:400]}}] # 카톡 한 글자 제한(보통 500자) 안전권
         }
     }
-
-@app.get("/")
-def health():
-    return {"status": "ok", "docs_count": collection.count()}

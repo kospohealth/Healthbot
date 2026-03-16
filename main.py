@@ -49,15 +49,22 @@ def load_docs():
 async def kakao_webhook(req: Request):
     try:
         data = await req.json()
-        query = data.get('userRequest', {}).get('utterance', '')
-        
-        # 1. 검색 강화 (가장 관련 있는 문단 3개를 추출하여 문맥을 넓힙니다)
-        results = collection.query(query_texts=[query], n_results=3) # n_results를 1에서 3으로 상향
-        context = "\n".join(results['documents'][0]) if results['documents'] and results['documents'][0] else ""
-        
-        # 2. 프롬프트 최적화 (AI에게 문맥을 더 깊이 분석하고 친절하게 답하라고 지시합니다)
-# prompt 수정
-prompt = f"""
+        query = data.get("userRequest", {}).get("utterance", "").strip()
+
+        # 사용자 입력이 비어 있을 때
+        if not query:
+            answer = "질문 내용을 확인하지 못했습니다. 다시 입력해주세요."
+        else:
+            # 1. 관련 문서 검색
+            results = collection.query(query_texts=[query], n_results=3)
+            context = "\n".join(results["documents"][0]) if results["documents"] and results["documents"][0] else ""
+
+            # 2. 검색 결과가 없을 때
+            if not context:
+                answer = "관련 문서를 찾지 못했습니다. 질문을 조금 더 구체적으로 입력해주세요."
+            else:
+                # 3. 프롬프트 생성
+                prompt = f"""
 [참고 문서]
 {context}
 
@@ -73,28 +80,37 @@ prompt = f"""
 - 문장이 중간에 끊기지 않도록 완결된 문장으로 작성하세요.
 - 인사말은 작성하지 마세요.
 - 질문을 반복하지 마세요.
+- 참고 문서에 없는 내용은 추측하지 말고, 문서에서 확인되지 않는다고 답하세요.
 
 [답변]
 """
 
-response = model.generate_content(
-    prompt,
-    generation_config={
-        "max_output_tokens": 200,
-        "temperature": 0.2,
-        "top_p": 0.9,
-        "top_k": 40
-    }
-)
-        answer = response.text.strip()
-        
+                # 4. Gemini 호출
+                response = model.generate_content(
+                    prompt,
+                    generation_config={
+                        "max_output_tokens": 200,
+                        "temperature": 0.2,
+                        "top_p": 0.9,
+                        "top_k": 40
+                    }
+                )
+
+                answer = response.text.strip() if response.text else "문서에서 답변을 생성하지 못했습니다."
+
     except Exception as e:
         print(f"❌ [에러 로그] {e}")
         answer = "죄송합니다. 답변 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-    
+
     return {
         "version": "2.0",
         "template": {
-            "outputs": [{"simpleText": {"text": answer}}]
+            "outputs": [
+                {
+                    "simpleText": {
+                        "text": answer
+                    }
+                }
+            ]
         }
     }

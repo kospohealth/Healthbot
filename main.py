@@ -4,11 +4,11 @@ import os
 
 app = FastAPI()
 
-# ✅ Gemini 최신 SDK: 모델 생성 시 API 키 전달
-model = genai.Model("gemini-1.5-flash", api_key=os.environ.get("GEMINI_API_KEY"))
+# ✅ Gemini 최신 SDK: TextGenerationModel 사용
+api_key = os.environ.get("GEMINI_API_KEY")
+model = genai.models.TextGenerationModel("gemini-1.5-flash", api_key=api_key)
 
 # --- 회사 자료 기반 RAG 샘플 ---
-# 실제 구현 시 chromadb + PDF/TXT 인덱싱 필요
 company_docs = [
     "건강검진 전 금식은 일반적으로 8시간 이상 권장됩니다.",
     "혈압 측정 시 안정 상태에서 측정해야 합니다.",
@@ -16,7 +16,7 @@ company_docs = [
 ]
 
 def search_docs(query: str):
-    """간단한 RAG 샘플: 질문과 관련된 문서 필터링"""
+    """질문과 관련된 문서 필터링 (RAG 샘플)"""
     return [doc for doc in company_docs if any(word in query for word in doc.split())] or company_docs
 
 def ask_gemini(question: str, context_docs: list):

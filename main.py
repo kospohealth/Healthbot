@@ -163,7 +163,7 @@ async def kakao_webhook(req: Request):
             # 표 문서는 여러 조각을 같이 봐야 해서 5개 추천
             results = collection.query(
                 query_texts=[query],
-                n_results=5
+                n_results=1
             )
 
             context = build_context(results)

@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Request
 from google import genai
 import os
+import asyncio
 
 app = FastAPI()
 
-# ✅ Gemini 최신 SDK: Bison 모델 사용
+# ✅ 최신 SDK 스타일 (클라이언트 초기화)
 api_key = os.environ.get("GEMINI_API_KEY")
-model = genai.Bison(model="gemini-1.5-flash", api_key=api_key)
+client = genai.Client(api_key=api_key)
+MODEL_ID = "gemini-1.5-flash"
 
-# --- 회사 자료 기반 RAG 샘플 ---
 company_docs = [
     "건강검진 전 금식은 일반적으로 8시간 이상 권장됩니다.",
     "혈압 측정 시 안정 상태에서 측정해야 합니다.",
@@ -16,38 +17,44 @@ company_docs = [
 ]
 
 def search_docs(query: str):
-    """질문과 관련된 문서 필터링 (RAG 샘플)"""
-    return [doc for doc in company_docs if any(word in query for word in doc.split())] or company_docs
+    # 간단한 키워드 포함 여부 검사 (실무에선 Vector DB 권장)
+    relevant_docs = [doc for doc in company_docs if any(word in doc for word in query.split())]
+    return relevant_docs if relevant_docs else company_docs
 
-def ask_gemini(question: str, context_docs: list):
-    """Gemini API 호출"""
-    prompt = f"다음 회사 자료만 참고해서 답변하세요:\n{context_docs}\n질문: {question}"
-    response = model.generate_text(prompt)
+async def ask_gemini(question: str, context_docs: list):
+    """비동기로 Gemini API 호출"""
+    context_str = "\n".join(context_docs)
+    prompt = f"당신은 회사의 건강검진 안내원입니다. 아래 자료를 참고하여 답변하세요.\n\n[참고 자료]\n{context_str}\n\n질문: {question}"
+    
+    # run_in_executor를 사용하거나 SDK의 async 기능을 활용
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None, 
+        lambda: client.models.generate_content(model=MODEL_ID, contents=prompt)
+    )
     return response.text
 
-# --- 카카오톡 웹훅 엔드포인트 ---
 @app.post("/webhook")
 async def kakao_webhook(req: Request):
-    data = await req.json()
-    user_msg = data['userRequest']['utterance']
+    try:
+        data = await req.json()
+        user_msg = data.get('userRequest', {}).get('utterance', '')
 
-    # 1️⃣ RAG 검색
-    docs = search_docs(user_msg)
+        # 1️⃣ RAG 검색
+        docs = search_docs(user_msg)
 
-    # 2️⃣ Gemini 호출
-    answer = ask_gemini(user_msg, docs)
+        # 2️⃣ Gemini 호출 (await 사용)
+        answer = await ask_gemini(user_msg, docs)
 
-    # 3️⃣ 카카오톡 JSON 반환
-    return {
-        "version": "2.0",
-        "template": {
-            "outputs": [
-                {"simpleText": {"text": answer}}
-            ]
+        return {
+            "version": "2.0",
+            "template": {
+                "outputs": [{"simpleText": {"text": answer}}]
+            }
         }
-    }
-
-# --- 테스트용 루트 ---
-@app.get("/")
-def root():
-    return {"message": "Healthbot server is running"}
+    except Exception as e:
+        # 에러 발생 시 카카오톡이 요구하는 응답 형식 유지
+        return {
+            "version": "2.0",
+            "template": {"outputs": [{"simpleText": {"text": f"오류가 발생했습니다: {str(e)}"}}]}
+        }

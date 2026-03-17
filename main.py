@@ -24,7 +24,7 @@ app = FastAPI()
 
 # 1. Gemini 설정 (유료 티어용 2.0-flash-001 또는 최신 모델 권장)
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("models/gemini-2.0-flash-001")
+model = genai.GenerativeModel("models/gemini-2.5-flash-lite")
 
 # 2. 벡터 DB 및 임베딩 설정
 emb_fn = embedding_functions.DefaultEmbeddingFunction()

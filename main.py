@@ -1,3 +1,14 @@
+import google.generativeai as genai
+import os
+
+# 1. API 키 설정 (본인의 키를 직접 넣거나 환경변수 사용)
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# 2. 사용 가능한 모델 목록 출력
+print("--- 사용 가능한 모델 목록 ---")
+for m in genai.list_models():
+    if 'generateContent' in m.supported_generation_methods:
+        print(f"Name: {m.name}") # 여기서 나오는 이름이 '진짜'입니다.
 import os
 import asyncio
 import httpx
